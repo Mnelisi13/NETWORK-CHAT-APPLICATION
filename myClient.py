@@ -1,6 +1,6 @@
 import socket
 
-HOST = "196.47.247.212"# Host IP address
+HOST = "196.42.73.170"  # Host IP address
 PORT = 9090
 ADDR = (HOST, PORT)
 SIZE = 1024
@@ -16,14 +16,21 @@ def main():
 
     connected = True
     while connected:
-        msg = input("Enter a message (type 'disconnect' to disconnect from server OR type \"connections\" to view active clients):\n")
+        msg = input("Enter a message (type 'disconnect' to disconnect from server OR type 'connections' to view active clients):\n")
         client.send(msg.encode(FORMAT))
         if msg == DISCONNECT_MSG:
             connected = False
-
+        elif msg == "connections":
+            connections_msg = client.recv(SIZE).decode(FORMAT)
+            print(f"Active connections:\n{connections_msg}")
         else:
-            msg = client.recv(SIZE).decode(FORMAT)
-            print(f"Message from server {ADDR}: {msg} ")
+            recipient = input("Enter the recipient's IP address and port number (e.g., '192.168.1.1:9090'):\n")
+            udp_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            recipient_ip, recipient_port = recipient.split(":")
+            udp_client.sendto(msg.encode(FORMAT), (recipient_ip, int(recipient_port)))
+            udp_client.close()
+
+    client.close()
 
 
 if __name__ == "__main__":

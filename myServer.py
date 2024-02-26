@@ -1,67 +1,60 @@
 import socket
 import threading
 
-HOST = socket.gethostbyname(socket.gethostname())
+HOST = socket.gethostbyname(socket.gethostname())  # Host IP address
 PORT = 9090
 ADDR = (HOST, PORT)
 SIZE = 1024
 FORMAT = 'utf-8'
 DISCONNECT_MSG = "disconnect".lower()
+VIEW_CONNECTIONS_MSG = "connections".lower()
 
-connections = {}
-client_addresses = {}
+# Array list to store the connections
+connections = []
+
 
 def handle_client(com_socket, addr):
-    print(f"[NEW CONNECTION] Connected to {addr}")
-    connections[addr] = com_socket
-    client_addresses[addr] = com_socket.getpeername()
+    print(f"[NEW CONNECTION] The server is connected to {addr} ")
+    connections.append(addr)  # Add new connection ADDR to the list
 
     connected = True
     while connected:
         msg = com_socket.recv(SIZE).decode(FORMAT)
+        # message received from the communication client socket
         if msg == DISCONNECT_MSG:
             connected = False
-            print(f"[ACTIVE CONNECTIONS] {len(connections)}")
-        elif msg.startswith("sendto "):
-            parts = msg.split()
-            if len(parts) >= 4:
-                dest_ip = parts[1]
-                dest_port = int(parts[2])
-                dest_msg = " ".join(parts[3:])
-                send_udp_message(dest_ip, dest_port, dest_msg)
+            print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
+
+        elif msg == VIEW_CONNECTIONS_MSG:
+            response = f"Current connections: {connections}"
+            com_socket.send(response.encode(FORMAT))
+
         else:
             print(f"Message from client {addr}: {msg}")
-            broadcast_message(msg, addr)
+            msg = f"Message received is \"{msg}\""
+            com_socket.send(msg.encode(FORMAT))
 
     com_socket.close()
-    del connections[addr]
-    del client_addresses[addr]
+    connections.remove(addr)  # Remove the connection ADDR from the list after disconnection
 
-def broadcast_message(msg, sender_addr):
-    for addr, com_socket in connections.items():
-        if addr != sender_addr:
-            try:
-                com_socket.send(msg.encode(FORMAT))
-            except socket.error:
-                print(f"Error broadcasting message to {addr}")
-
-def send_udp_message(ip, port, message):
-    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    udp_socket.sendto(message.encode(), (ip, port))
-    udp_socket.close()
 
 def main():
-    print("[STARTING] Server is starting...")
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(ADDR)
-    server.listen()
-    print(f"[LISTENING] Server is listening on {HOST}:{PORT}")
+    print("[STARTING] the server is starting...")
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # creating server socket for accepting connections
+    server.bind(ADDR)  # bind/associate the server socket with the ADDR for identification
+    server.listen()   # listen for any client trying to connect to server
+    print(f"[LISTENING] the server is listening on {HOST}:{PORT}")
 
     while True:
-        com_socket, addr = server.accept()
+        com_socket, addr = server.accept()  # server accept connection from communication socket.
+
+        # create a separate thread for the server to handle the accepted client.
         thread = threading.Thread(target=handle_client, args=(com_socket, addr))
         thread.start()
-        print(f"[ACTIVE CONNECTIONS] {len(connections)}")
+        # print the number of active connections/ number of threads
+        print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")  # minus the main thread
+        print(f"Current connections: {connections}")
+
 
 if __name__ == "__main__":
     main()
